@@ -1,69 +1,20 @@
+import random
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, Dataset
-from gensim import downloader
 from dependecy_parser_optimized import DependencyParser
-from parser import parse_train_file
+from parser import generate_ds
+from chu_liu_edmonds import decode_mst
+import os
 
 
-def embed_sentence(sen, embedding):
-    representation = []
-    for word in sen:
-        if word == 'PADDING':
-            vec = np.zeros(200)
-        # word = word.lower()
-        elif word not in embedding.key_to_index:
-            vec = np.zeros(200)
-        else:
-            vec = embedding[word]
-        representation.append(vec)
-    representation = np.asarray(representation, dtype=np.float32)
-    return representation
-
-
-class PaddingDataset(Dataset):
-    def __init__(self, x, y, max_seq_len):
-        self.x = x
-        self.y = y
-        self.max_seq_len = max_seq_len
-
-    def __len__(self):
-        return len(self.y)
-
-    def __getitem__(self, idx):
-        if len(self.x[idx]) == self.max_seq_len:
-            return np.array(self.x[idx]), np.array(self.y[idx], dtype=np.int32), len(self.y[idx])
-        elif len(self.x[idx]) > self.max_seq_len:
-            original_x = np.array(self.x[idx])
-            original_y = np.array(self.y[idx], dtype=np.int32)
-            return original_x[:self.max_seq_len], original_y[:self.max_seq_len], len(self.y[idx])
-        elif len(self.x[idx]) < self.max_seq_len:
-            x_padded_val = self.x[idx] + (self.max_seq_len - len(self.x[idx])) * ['PADDING']
-            y_padded_val = self.y[idx] + (self.max_seq_len - len(self.x[idx])) * [np.iinfo(np.int32).max]
-            return np.array(x_padded_val), np.array(y_padded_val, dtype=np.int32), len(self.y[idx])
-
-
-class CustomDataset(Dataset):
-    def __init__(self, x, y, seq_len_vals):
-        self.x = x
-        self.y = y
-        self.seq_len_values = seq_len_vals
-
-    def __len__(self):
-        return len(self.y)
-
-    def __getitem__(self, idx):
-        return self.x[idx], self.y[idx], self.seq_len_values[idx]
-
-
-def train(model, data_loader, epochs, lr, device):
-    model.train()
+def train(model, train_data_loader, validation_data_loader, epochs, lr, device):
+    print('Beginning training')
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     for i in range(epochs):
-        print(f'Epoch: {i}')
-        epoch_loss_lst = []
+        model.train()
+        sample_loss_lst = []
 
-        for train_data_batch, train_labels_batch, real_seq_len_batch in data_loader:
+        for train_data_batch, train_labels_batch, real_seq_len_batch in train_data_loader:
             batch_loss = 0
             optimizer.zero_grad()
 
@@ -71,48 +22,72 @@ def train(model, data_loader, epochs, lr, device):
             train_labels_batch = train_labels_batch.to(device)
             real_seq_len_batch = real_seq_len_batch.to(device)
             for sample_x, sample_y, sample_seq_len in zip(train_data_batch, train_labels_batch, real_seq_len_batch):
-                sample_loss, batch_score_matrix = model(sample_x, sample_y, sample_seq_len)
+                sample_loss, sample_score_matrix = model(sample_x, sample_y, sample_seq_len)
                 batch_loss = batch_loss + sample_loss
+                sample_loss_lst.append(sample_loss.item())
 
             batch_loss.backward()
             optimizer.step()
 
-            epoch_loss_lst.append(batch_loss.item())
+        mst, _ = decode_mst(sample_score_matrix.detach().cpu().numpy(), sample_score_matrix.shape[0], has_labels=False)
+        uas_loss, val_loss = evaluate(model, validation_data_loader, device)
+        print(
+            f'Epoch: {i}, train loss: {np.average(sample_loss_lst)}, validation loss: {val_loss}, val uas: {uas_loss}')
 
-        print(f'Epoch: {i}, train loss: {np.average(epoch_loss_lst)}')
+
+def evaluate(model, data_loader, device):
+    model.eval()
+
+    with torch.no_grad():
+        uas_loss_lst = []
+        loss_lst = []
+        total_tokens_num = 0
+        for x, y, real_seq_len in data_loader:
+            x = torch.squeeze(x)[:real_seq_len].to(device)
+            y = torch.squeeze(y)[:real_seq_len].to(device)
+            real_seq_len = torch.squeeze(real_seq_len).to(device)
+            loss, sample_score_matrix = model(x, y, real_seq_len)
+            loss_lst.append(loss.item())
+            mst, _ = decode_mst(sample_score_matrix.detach().cpu().numpy(), sample_score_matrix.shape[0],
+                                has_labels=False)
+            uas_loss_lst += list((mst[1:] == y[1:real_seq_len].detach().cpu().numpy()))
+            total_tokens_num += len(mst[1:])
+            # uas_loss_lst.append(uas_loss)
+
+    return sum(uas_loss_lst) / total_tokens_num, np.average(loss_lst)
+
+
+def set_seed(seed: int = 42) -> None:
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    # When running on the CuDNN backend, two further options must be set
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    # Set a fixed value for the hash seed
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    print(f"Random seed set as {seed}")
 
 
 def main():
-    file_address = '/home/user/PycharmProjects/nlp_ex_3/data/train.labeled'
-    sentences, sentence_tags = parse_train_file(file_address)
-    max_seq_len = 250
-    temp_data = PaddingDataset(x=sentences, y=sentence_tags, max_seq_len=max_seq_len)
-
-    GLOVE_PATH = 'glove-twitter-200'
-    glove = downloader.load(GLOVE_PATH)
-
-    embedded_ds_x = []
-    padded_ds_y = []
-    padded_ds_seq_len = []
-    for sen, tags, seq_len in temp_data:
-        sen_embeddings = embed_sentence(sen=sen, embedding=glove)
-        embedded_ds_x.append(sen_embeddings)
-        padded_ds_y.append(tags)
-        padded_ds_seq_len.append(seq_len)
-
-    data = CustomDataset(x=embedded_ds_x, y=padded_ds_y, seq_len_vals=padded_ds_seq_len)
-
-    data_loader = DataLoader(dataset=data,
-                             batch_size=10,
-                             shuffle=False)
-
+    set_seed(seed=318295029)
     device = 'cuda'
+    train_file_address = '/home/user/PycharmProjects/nlp_ex_3/data/train.labeled'
+    test_file_address = '/home/user/PycharmProjects/nlp_ex_3/data/test.labeled'
+    train_data_loader = generate_ds(file_address=train_file_address,
+                                    batch_size=25,
+                                    shuffle=True)
 
+    validation_data_loader = generate_ds(file_address=test_file_address,
+                                         batch_size=1,
+                                         shuffle=False)
     # Model initialization
     model = DependencyParser(device=device).to(device)
 
     train(model=model,
-          data_loader=data_loader,
+          train_data_loader=train_data_loader,
+          validation_data_loader=validation_data_loader,
           epochs=50,
           lr=0.001,
           device=device)
