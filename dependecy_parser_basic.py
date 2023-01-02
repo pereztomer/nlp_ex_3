@@ -31,28 +31,52 @@ class Mlp(nn.Module):
 
 
 class DependencyParser(nn.Module):
-    def __init__(self, word_embedding):
+    def __init__(self, word_embedding, device):
         super(DependencyParser, self).__init__()
-        self.word_embedding = word_embedding
-        self.encoder = nn.LSTM(input_size=200, num_layers=2, bidirectional=True, hidden_size=256)
+        # self.word_embedding = word_embedding
+        self.device = device
+        # word_embedding is implemented outside the model for ease of use
+        self.encoder = nn.LSTM(input_size=200, num_layers=2, bidirectional=True, hidden_size=256, batch_first=True)
         self.mlp_head = Mlp(input_dim=256 * 2 * 2)
 
-    def embed_sentence(self, sen):
-        representation = []
-        for word in sen:
-            word = word.lower()
-            if word not in self.word_embedding.key_to_index:
-                vec = np.zeros(200)
-            else:
-                vec = self.word_embedding[word]
-            representation.append(vec)
-        representation = np.asarray(representation)
-        return representation
+    def forward(self, sentence, real_dependency_tree, real_seq_len):
+        new_word_embeddings, _ = self.encoder(sentence)
+        # Get score for each possible edge in the parsing graph, construct score matrix
+        batch_score_matrix = []
+        batch_loss = 0
+        for i in range(sentence.shape[0]):
+            max_seq_len = min(new_word_embeddings.shape[1], real_seq_len[i])
+            all_possible_edges_regular_sen = list(itertools.permutations(list(range(1, max_seq_len)), 2))
+            edges_from_root = [(0, i) for i in range(1, max_seq_len)]
+            all_possible_edges = edges_from_root + all_possible_edges_regular_sen
 
-    def edge_scorer(self, edges, sentence_embedding):
+            score_matrix = self.edge_scorer(edges=all_possible_edges,
+                                            sentence_embedding=new_word_embeddings[i],
+                                            real_seq_len=real_seq_len[i])
+            # Calculate the negative log likelihood loss described above
+            loss = self.loss_function(real_dependency_tree[i], score_matrix)
+            batch_score_matrix.append(score_matrix)
+            batch_loss += loss
+
+        return batch_loss, batch_score_matrix
+
+    # def embed_sentence(self, sen):
+    #     representation = []
+    #     for word in sen:
+    #         word = word.lower()
+    #         if word not in self.word_embedding.key_to_index:
+    #             vec = np.zeros(200)
+    #         else:
+    #             vec = self.word_embedding[word]
+    #         representation.append(vec)
+    #     representation = np.asarray(representation)
+    #     return representation
+
+    def edge_scorer(self, edges, sentence_embedding, real_seq_len):
         # table [i][j] == score of edge from vertex i to vertex j (row->column)
         # mlp head: [word_1_embeddings, word_2_embeddings] -> score for edge from word1 to word2
-        score_matrix = torch.zeros(sentence_embedding.shape[0], sentence_embedding.shape[0])
+        score_matrix = torch.zeros(min(sentence_embedding.shape[0], real_seq_len),
+                                   min(sentence_embedding.shape[0], real_seq_len)).to(self.device)
         for vertex_1, vertex_2 in edges:
             word_1_embeddings = sentence_embedding[vertex_1]
             word_2_embeddings = sentence_embedding[vertex_2]
@@ -61,28 +85,16 @@ class DependencyParser(nn.Module):
 
         return score_matrix
 
-    def forward(self, sentence, real_dependency_tree):
-        basic_sentence_embedding = self.embed_sentence(sentence)
-        basic_sentence_embedding = torch.Tensor(basic_sentence_embedding)
-        new_word_embeddings, _ = self.encoder(basic_sentence_embedding)
-        all_possible_edges_regular_sen = list(itertools.permutations(list(range(1, new_word_embeddings.shape[0])), 2))
-        edges_from_root = [(0, i) for i in range(1, new_word_embeddings.shape[0])]
-        all_possible_edges = edges_from_root + all_possible_edges_regular_sen
-        # Get score for each possible edge in the parsing graph, construct score matrix
-        score_matrix = self.edge_scorer(edges=all_possible_edges, sentence_embedding=new_word_embeddings)
-        # Calculate the negative log likelihood loss described above
-        loss = self.loss_function(real_dependency_tree, score_matrix)
-        return loss, score_matrix
-
     def loss_function(self, real_dependency_tree, score_matrix):
         total_loss = 0
-        for vertex_1, vertex_2 in real_dependency_tree[1:]: # first edge is a dummy edge to vertex ROOT
+        for idx in range(1, score_matrix.shape[0]):  # first edge is a dummy edge to vertex ROOT
+            vertex_1, vertex_2 = real_dependency_tree[idx]
             normalizing_score_sum = sum([torch.exp(score_matrix[j][vertex_2]) if j != vertex_2 else 0 for j in
-                                         range(len(real_dependency_tree))])
+                                         range(score_matrix.shape[0])])
             softmax_score = torch.exp(score_matrix[vertex_1][vertex_2]) / normalizing_score_sum
             total_loss += -1 * torch.log(softmax_score)
 
-        return total_loss / (len(real_dependency_tree)-1)
+        return total_loss / (len(real_dependency_tree) - 1)
 
 
 def main():

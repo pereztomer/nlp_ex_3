@@ -1,4 +1,4 @@
-import torch
+import numpy as np
 
 
 def parse_train_file(file_address):
@@ -13,10 +13,10 @@ def parse_train_file(file_address):
                 token_counter = row.split('\t')[0]
                 token_head = row.split('\t')[6]
                 new_sentence.append(token)
-                new_sentence_tags.append((int(token_head), int(token_counter)))
+                new_sentence_tags.append(int(token_head))
             else:
                 new_sentence.insert(0, 'ROOT')
-                new_sentence_tags.insert(0, (torch.inf, torch.inf))
+                new_sentence_tags.insert(0, np.iinfo(np.int32).max)
                 sentences.append(new_sentence)
                 sentence_tags.append(new_sentence_tags)
                 new_sentence = []
