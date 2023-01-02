@@ -1,8 +1,8 @@
 import random
 import numpy as np
 import torch
-from dependecy_parser_optimized import DependencyParser
-from parser import generate_ds
+from competition.dependecy_parser_comp import DependencyParser
+from competition.parser_comp import generate_ds
 from chu_liu_edmonds import decode_mst
 import os
 

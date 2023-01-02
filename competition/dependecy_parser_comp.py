@@ -33,9 +33,9 @@ class Mlp(nn.Module):
 class DependencyParser(nn.Module):
     def __init__(self, device):
         super(DependencyParser, self).__init__()
-        # self.word_embedding: word_embedding is implemented outside the model for ease of use
+        # self.word_embed256ding: word_embedding is implemented outside the model for ease of use
         self.device = device
-        self.encoder = nn.LSTM(input_size=200, num_layers=2, bidirectional=True, hidden_size=256, batch_first=True)
+        self.encoder = nn.LSTM(input_size=400, num_layers=2, bidirectional=True, hidden_size=256, batch_first=True)
         self.edge_scorer = Mlp(input_dim=256 * 2 * 2)
         self.loss_function = nn.NLLLoss()
         self.log_softmax = nn.LogSoftmax(dim=1)

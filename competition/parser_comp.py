@@ -13,12 +13,12 @@ def parse_train_file(file_address):
         for row in f:
             if row != '\n':
                 token = row.split('\t')[1]
-                token_counter = row.split('\t')[0]
+                token_pos = row.split('\t')[3]
                 token_head = row.split('\t')[6]
-                new_sentence.append(token)
+                new_sentence.append((token, token_pos))
                 new_sentence_tags.append(int(token_head))
             else:
-                new_sentence.insert(0, 'ROOT')
+                new_sentence.insert(0, ('ROOT', 'init'))
                 new_sentence_tags.insert(0, np.iinfo(np.int32).max)
                 sentences.append(new_sentence)
                 sentence_tags.append(new_sentence_tags)
@@ -30,15 +30,18 @@ def parse_train_file(file_address):
 
 def embed_sentence(sen, embedding):
     representation = []
-    for word in sen:
-        if word == 'PADDING':
-            vec = np.zeros(200)
-        # word = word.lower()
-        elif word not in embedding.key_to_index:
-            vec = np.zeros(200)
-        else:
-            vec = embedding[word]
-        representation.append(vec)
+    for word1, word2 in sen:
+        combined_vec = []
+        for word in (word1, word2):
+            if word1 == 'PADDING':
+                vec = np.zeros(200)
+            # word = word.lower()
+            elif word not in embedding.key_to_index:
+                vec = np.zeros(200)
+            else:
+                vec = embedding[word]
+            combined_vec += list(vec)
+        representation.append(combined_vec)
     representation = np.asarray(representation, dtype=np.float32)
     return representation
 
@@ -73,7 +76,7 @@ class PaddingDataset(Dataset):
             original_y = np.array(self.y[idx], dtype=np.int32)
             return original_x[:self.max_seq_len], original_y[:self.max_seq_len], len(self.y[idx])
         elif len(self.x[idx]) < self.max_seq_len:
-            x_padded_val = self.x[idx] + (self.max_seq_len - len(self.x[idx])) * ['PADDING']
+            x_padded_val = self.x[idx] + (self.max_seq_len - len(self.x[idx])) * [('PADDING', 'PADDING')]
             y_padded_val = self.y[idx] + (self.max_seq_len - len(self.x[idx])) * [np.iinfo(np.int32).max]
             return np.array(x_padded_val), np.array(y_padded_val, dtype=np.int32), len(self.y[idx])
 
@@ -106,7 +109,6 @@ def generate_ds(file_address, batch_size, shuffle):
 def main():
     file_address = '/home/user/PycharmProjects/nlp_ex_3/data/train.labeled'
     sentences, sentence_tags = parse_train_file(file_address)
-    print('hi')
 
 
 if __name__ == '__main__':
