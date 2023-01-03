@@ -31,21 +31,29 @@ class Mlp(nn.Module):
 
 
 class DependencyParser(nn.Module):
-    def __init__(self, device):
+    def __init__(self, embedding_dim, word_vocab_size, pos_vocab_size, device):
         super(DependencyParser, self).__init__()
-        # self.word_embed256ding: word_embedding is implemented outside the model for ease of use
+        self.embedding_dim = embedding_dim
+        self.word_embedding = nn.Embedding(word_vocab_size, self.embedding_dim)
+        self.pos_embedding = nn.Embedding(pos_vocab_size, self.embedding_dim)
         self.device = device
         self.encoder = nn.LSTM(input_size=400, num_layers=2, bidirectional=True, hidden_size=256, batch_first=True)
         self.edge_scorer = Mlp(input_dim=256 * 2 * 2)
         self.loss_function = nn.NLLLoss()
         self.log_softmax = nn.LogSoftmax(dim=1)
 
-    def forward(self, padded_sentence, padded_dependency_tree, real_seq_len):
+    def forward(self, padded_sentence, padded_dependency_tree, padded_pos, real_seq_len):
         sentence = padded_sentence[:real_seq_len]
         dependency_tree = padded_dependency_tree[:real_seq_len]
-        lstm_out, _ = self.encoder(sentence)
+        pos = padded_pos[:real_seq_len]
 
-        new_word_embeddings = lstm_out[0]
+        sentence_embeddings = self.word_embedding(sentence)
+        pos_embeddings = self.pos_embedding(pos)
+
+        embeddings = torch.cat((sentence_embeddings, pos_embeddings), 1)
+
+        lstm_out, _ = self.encoder(embeddings)
+
         X1 = lstm_out.unsqueeze(0)
         Y1 = lstm_out.unsqueeze(1)
         X2 = X1.repeat(lstm_out.shape[0], 1, 1)
@@ -61,17 +69,4 @@ class DependencyParser(nn.Module):
         out_score_matrix = scores_matrix.T.fill_diagonal_(0)
         out_score_matrix[:, 0] = 0
         return loss, out_score_matrix
-
-
-# def embed_sentence(self, sen):
-#     representation = []
-#     for word in sen:
-#         word = word.lower()
-#         if word not in self.word_embedding.key_to_index:
-#             vec = np.zeros(200)
-#         else:
-#             vec = self.word_embedding[word]
-#         representation.append(vec)
-#     representation = np.asarray(representation)
-#     return representation
 
