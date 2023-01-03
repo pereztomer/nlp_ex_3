@@ -105,7 +105,7 @@ def generate_ds(train_address, val_address, train_batch_size, train_shuffle, max
                                  batch_size=1,
                                  shuffle=False)
 
-    return train_data_loader, val_data_loader, len(sentences_word2idx), len(pos_word2idx)
+    return train_data_loader, val_data_loader, sentences_word2idx, pos_word2idx
 
 
 def main():

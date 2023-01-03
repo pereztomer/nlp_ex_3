@@ -26,7 +26,11 @@ def train(model, train_data_loader, validation_data_loader, epochs, lr, device):
                                                                              train_labels_batch,
                                                                              train_positions_batch,
                                                                              train_real_seq_len_batch):
-                sample_loss, sample_score_matrix = model(sample_sentence, sample_y, sample_pos, sample_seq_len)
+
+                sample_loss, sample_score_matrix = model(padded_sentence=sample_sentence,
+                                                         padded_dependency_tree=sample_y,
+                                                         padded_pos=sample_pos,
+                                                         real_seq_len=sample_seq_len)
                 batch_loss = batch_loss + sample_loss
                 sample_loss_lst.append(sample_loss.item())
 
@@ -37,6 +41,8 @@ def train(model, train_data_loader, validation_data_loader, epochs, lr, device):
         uas_loss, val_loss = evaluate(model, validation_data_loader, device)
         print(
             f'Epoch: {i}, train loss: {np.average(sample_loss_lst)}, validation loss: {val_loss}, val uas: {uas_loss}')
+
+    torch.save(model, 'comp_model_mlp_ex3')
 
 
 def evaluate(model, data_loader, device):
@@ -51,7 +57,10 @@ def evaluate(model, data_loader, device):
             y = torch.squeeze(y)[:real_seq_len].to(device)
             pos = torch.squeeze(pos)[:real_seq_len].to(device)
             real_seq_len = torch.squeeze(real_seq_len).to(device)
-            loss, sample_score_matrix = model(x, y, pos, real_seq_len)
+            loss, sample_score_matrix = model(padded_sentence=x,
+                                              padded_dependency_tree=y,
+                                              padded_pos=pos,
+                                              real_seq_len=real_seq_len)
             loss_lst.append(loss.item())
             mst, _ = decode_mst(sample_score_matrix.detach().cpu().numpy(), sample_score_matrix.shape[0],
                                 has_labels=False)
@@ -81,21 +90,21 @@ def main():
     train_address = '/home/user/PycharmProjects/nlp_ex_3/data/train.labeled'
     val_address = '/home/user/PycharmProjects/nlp_ex_3/data/test.labeled'
 
-    train_data_loader, val_data_loader, word_vocab_size, pos_vocab_size = generate_ds(train_address=train_address,
-                                                                                      val_address=val_address,
-                                                                                      train_batch_size=24,
-                                                                                      train_shuffle=False,
-                                                                                      max_seq_len=250)
+    train_data_loader, val_data_loader, sentences_word2idx, pos_word2idx = generate_ds(train_address=train_address,
+                                                                                       val_address=val_address,
+                                                                                       train_batch_size=24,
+                                                                                       train_shuffle=True,
+                                                                                       max_seq_len=250)
     # Model initialization
     model = DependencyParser(device=device,
                              embedding_dim=200,
-                             word_vocab_size=word_vocab_size,
-                             pos_vocab_size=pos_vocab_size).to(device)
+                             sentences_word2idx=sentences_word2idx,
+                             pos_word2idx=pos_word2idx).to(device)
 
     train(model=model,
           train_data_loader=train_data_loader,
           validation_data_loader=val_data_loader,
-          epochs=50,
+          epochs=2,
           lr=0.001,
           device=device)
 
