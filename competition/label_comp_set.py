@@ -137,7 +137,7 @@ def main():
     comp_data_loader = DataLoader(dataset=comp_ds,
                                   batch_size=1,
                                   shuffle=False)
-
+    # todo: need to check that the prediciotns match to the rows!
     predictions = predict(model, comp_data_loader, 'cuda')
     write_file(comp_address, predictions)
 
