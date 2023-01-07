@@ -7,11 +7,11 @@ import itertools
 
 
 class Mlp(nn.Module):
-    def __init__(self, input_dim):
+    def __init__(self, input_dim, output_dim):
         super(Mlp, self).__init__()
         self.fc1 = nn.Linear(input_dim, 256)
         self.fc2 = nn.Linear(256, 128)
-        self.fc3 = nn.Linear(128, 1)
+        self.fc3 = nn.Linear(128, output_dim)
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(0.3)
 
@@ -40,13 +40,15 @@ class DependencyParser(nn.Module):
         self.pos_embedding = nn.Embedding(len(pos_word2idx), self.embedding_dim)
         self.device = device
         self.encoder = nn.LSTM(input_size=400, num_layers=2, bidirectional=True, hidden_size=256, batch_first=True)
-        self.edge_scorer = Mlp(input_dim=256 * 2 * 2)
+        self.edge_scorer = Mlp(input_dim=256 * 2 * 2, output_dim=1)
         self.loss_function = nn.NLLLoss()
         self.log_softmax = nn.LogSoftmax(dim=1)
+        self.tags_classifier = Mlp(input_dim=256 * 2, output_dim=20)
 
-    def forward(self, padded_sentence, padded_pos, real_seq_len, padded_dependency_tree=None):
+    def forward(self, padded_sentence, padded_pos, real_seq_len, padded_d_tags, padded_dependency_tree=None):
         sentence = padded_sentence[:real_seq_len]
         pos = padded_pos[:real_seq_len]
+        d_tags = padded_d_tags[:real_seq_len]
 
         sentence_embeddings = self.word_embedding(sentence)
         pos_embeddings = self.pos_embedding(pos)
@@ -54,6 +56,9 @@ class DependencyParser(nn.Module):
         embeddings = torch.cat((sentence_embeddings, pos_embeddings), 1)
 
         lstm_out, _ = self.encoder(embeddings)
+
+        predicted_d_tags = self.tags_classifier(lstm_out)
+        d_tags_loss = self.loss_function(self.log_softmax(predicted_d_tags), d_tags)
 
         X1 = lstm_out.unsqueeze(0)
         Y1 = lstm_out.unsqueeze(1)
@@ -70,6 +75,6 @@ class DependencyParser(nn.Module):
         if padded_dependency_tree is not None:
             dependency_tree = padded_dependency_tree[:real_seq_len]
             dependency_tree = dependency_tree.type(torch.LongTensor).to('cuda')
-            loss = self.loss_function(self.log_softmax(scores_matrix)[1:], dependency_tree[1:])
+            loss = self.loss_function(self.log_softmax(scores_matrix)[1:], dependency_tree[1:]) + d_tags_loss
             return loss, out_score_matrix
         return out_score_matrix

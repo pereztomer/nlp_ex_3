@@ -1,8 +1,8 @@
 import random
 import numpy as np
 import torch
-from competition.dependecy_parser_comp import DependencyParser
-from competition.utils_comp import generate_ds
+from competetion_v2.dependecy_parser_comp import DependencyParser
+from competetion_v2.utils_comp import generate_ds
 from chu_liu_edmonds import decode_mst
 import os
 
@@ -13,7 +13,8 @@ def train(model, train_data_loader, validation_data_loader, epochs, lr, device):
     for i in range(epochs):
         model.train()
         sample_loss_lst = []
-        for train_sentences_batch, train_labels_batch, train_positions_batch, train_real_seq_len_batch in train_data_loader:
+        for train_sentences_batch, train_labels_batch, train_positions_batch, train_real_seq_len_batch, train_d_tags_batch \
+                in train_data_loader:
             batch_loss = 0
             optimizer.zero_grad()
 
@@ -21,16 +22,18 @@ def train(model, train_data_loader, validation_data_loader, epochs, lr, device):
             train_labels_batch = train_labels_batch.to(device)
             train_positions_batch = train_positions_batch.to(device)
             train_real_seq_len_batch = train_real_seq_len_batch.to(device)
+            train_d_tags_batch = train_d_tags_batch.to(device)
 
-            for sample_sentence, sample_y, sample_pos, sample_seq_len in zip(train_sentences_batch,
-                                                                             train_labels_batch,
-                                                                             train_positions_batch,
-                                                                             train_real_seq_len_batch):
-
+            for sample_sentence, sample_y, sample_pos, sample_seq_len, sample_d_tags in zip(train_sentences_batch,
+                                                                                            train_labels_batch,
+                                                                                            train_positions_batch,
+                                                                                            train_real_seq_len_batch,
+                                                                                            train_d_tags_batch):
                 sample_loss, sample_score_matrix = model(padded_sentence=sample_sentence,
                                                          padded_dependency_tree=sample_y,
                                                          padded_pos=sample_pos,
-                                                         real_seq_len=sample_seq_len)
+                                                         real_seq_len=sample_seq_len,
+                                                         padded_d_tags=sample_d_tags)
                 batch_loss = batch_loss + sample_loss
                 sample_loss_lst.append(sample_loss.item())
 
@@ -52,14 +55,17 @@ def evaluate(model, data_loader, device):
         uas_loss_lst = []
         loss_lst = []
         total_tokens_num = 0
-        for x, y, pos, real_seq_len in data_loader:
+        # train_sentences_batch, train_labels_batch, train_positions_batch, train_real_seq_len_batch, train_d_tags_batch
+        for x, y, pos, real_seq_len, d_tags in data_loader:
             x = torch.squeeze(x)[:real_seq_len].to(device)
             y = torch.squeeze(y)[:real_seq_len].to(device)
+            d_tags = torch.squeeze(d_tags)[:real_seq_len].to(device)
             pos = torch.squeeze(pos)[:real_seq_len].to(device)
             real_seq_len = torch.squeeze(real_seq_len).to(device)
             loss, sample_score_matrix = model(padded_sentence=x,
                                               padded_dependency_tree=y,
                                               padded_pos=pos,
+                                              padded_d_tags=d_tags,
                                               real_seq_len=real_seq_len)
             loss_lst.append(loss.item())
             mst, _ = decode_mst(sample_score_matrix.detach().cpu().numpy(), sample_score_matrix.shape[0],
@@ -104,7 +110,7 @@ def main():
     train(model=model,
           train_data_loader=train_data_loader,
           validation_data_loader=val_data_loader,
-          epochs=2,
+          epochs=15,
           lr=0.001,
           device=device)
 

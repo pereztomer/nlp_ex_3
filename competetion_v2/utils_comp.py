@@ -6,10 +6,12 @@ from torch.utils.data import DataLoader, Dataset
 def parse_train_file(file_address):
     with open(file_address, encoding='utf-8') as f:
         sentences = []  # Contains the final sentences without tags
+        sentence_dependency_tags = []  # Contains the tags of each word in the sentences
         sentence_tags = []  # Contains the tags of each word in the sentences
         sentence_positions = []
         new_sentence = []
         new_sentence_tags = []
+        new_sentence_dependency_tags = []
         new_sentence_pos = []
         sentences_real_len = []
         for row in f:
@@ -17,37 +19,43 @@ def parse_train_file(file_address):
                 token = row.split('\t')[1]
                 token_pos = row.split('\t')[3]
                 token_head = row.split('\t')[6]
+                dependency_label = row.split('\t')[7]
                 new_sentence.append(token)
                 new_sentence_pos.append(token_pos)
                 new_sentence_tags.append(int(token_head))
+                new_sentence_dependency_tags.append(dependency_label)
             else:
                 new_sentence.insert(0, 'ROOT')
                 new_sentence_tags.insert(0, np.iinfo(np.int32).max)
                 new_sentence_pos.insert(0, 'init')
+                new_sentence_dependency_tags.insert(0, 'init')
 
                 sentences.append(new_sentence)
                 sentence_tags.append(new_sentence_tags)
                 sentence_positions.append(new_sentence_pos)
                 sentences_real_len.append(len(new_sentence))
+                sentence_dependency_tags.append(new_sentence_dependency_tags)
                 new_sentence = []
                 new_sentence_tags = []
                 new_sentence_pos = []
+                new_sentence_dependency_tags = []
 
-    return sentences, sentence_positions, sentence_tags, sentences_real_len
+    return sentences, sentence_positions, sentence_tags, sentence_dependency_tags, sentences_real_len
 
 
 class CustomDataset(Dataset):
-    def __init__(self, sentences, positions, tags, seq_len_vals):
+    def __init__(self, sentences, positions, tags,d_tags, seq_len_vals):
         self.sentences = sentences
         self.positions = positions
         self.tags = tags
         self.seq_len_values = seq_len_vals
+        self.d_tags= d_tags
 
     def __len__(self):
         return len(self.sentences)
 
     def __getitem__(self, idx):
-        return self.sentences[idx], self.tags[idx], self.positions[idx], self.seq_len_values[idx]
+        return self.sentences[idx], self.tags[idx], self.positions[idx], self.seq_len_values[idx], self.d_tags[idx]
 
 
 def tokenize(x_train, x_val):
@@ -76,20 +84,33 @@ def padding_(sentences, seq_len):
 
 
 def generate_ds(train_address, val_address, train_batch_size, train_shuffle, max_seq_len):
-    train_sentences, train_positions, train_y, train_sentences_real_len = parse_train_file(train_address)
-    val_sentences, val_positions, val_y, val_sentences_real_len = parse_train_file(val_address)
+    train_sentences, train_positions, train_y, train_sentence_dependency_tags, train_sentences_real_len = \
+        parse_train_file(train_address)
+    val_sentences, val_positions, val_y, val_sentence_dependency_tags, val_sentences_real_len = parse_train_file(
+        val_address)
+    # tokenizing sentences:
     train_sentences_idx, val_sentences_idx, sentences_word2idx, sentences_idx2word = tokenize(train_sentences,
                                                                                               val_sentences)
     train_sentences_idx_padded = padding_(train_sentences_idx, max_seq_len)
     train_y_padded = padding_(train_y, max_seq_len)
     val_sentences_idx_padded = padding_(val_sentences_idx, max_seq_len)
     val_y_padded = padding_(val_y, max_seq_len)
+
+    # tokenizing positions:
     train_pos_idx, val_pos_idx, pos_word2idx, pos_idx2word = tokenize(train_positions, val_positions)
     train_pos_idx_padded = padding_(train_pos_idx, max_seq_len)
     val_pos_idx_padded = padding_(val_pos_idx, max_seq_len)
+
+    # tokenizing dependency_tags:
+    train_d_tags_idx, val_d_tags_idx, d_tags_word2idx, d_tags_idx2word = tokenize(train_sentence_dependency_tags,
+                                                                                  val_sentence_dependency_tags)
+    train_d_tags_idx_padded = padding_(train_d_tags_idx, max_seq_len)
+    val_d_tags_idx_padded = padding_(val_d_tags_idx, max_seq_len)
+
     train_ds = CustomDataset(sentences=train_sentences_idx_padded,
                              tags=train_y_padded,
                              positions=train_pos_idx_padded,
+                             d_tags=train_d_tags_idx_padded,
                              seq_len_vals=train_sentences_real_len)
 
     train_data_loader = DataLoader(dataset=train_ds,
@@ -99,6 +120,7 @@ def generate_ds(train_address, val_address, train_batch_size, train_shuffle, max
     val_ds = CustomDataset(sentences=val_sentences_idx_padded,
                            tags=val_y_padded,
                            positions=val_pos_idx_padded,
+                           d_tags=val_d_tags_idx_padded,
                            seq_len_vals=val_sentences_real_len)
 
     val_data_loader = DataLoader(dataset=val_ds,
