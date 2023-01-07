@@ -1,6 +1,9 @@
+import copy
+
 import numpy as np
 
 from torch.utils.data import DataLoader, Dataset
+from numpy.random import default_rng
 
 
 def parse_train_file(file_address):
@@ -44,18 +47,25 @@ def parse_train_file(file_address):
 
 
 class CustomDataset(Dataset):
-    def __init__(self, sentences, positions, tags,d_tags, seq_len_vals):
+    def __init__(self, sentences, positions, tags, d_tags, seq_len_vals):
         self.sentences = sentences
         self.positions = positions
         self.tags = tags
         self.seq_len_values = seq_len_vals
-        self.d_tags= d_tags
+        self.d_tags = d_tags
+        self.sampler = default_rng()
 
     def __len__(self):
         return len(self.sentences)
 
     def __getitem__(self, idx):
-        return self.sentences[idx], self.tags[idx], self.positions[idx], self.seq_len_values[idx], self.d_tags[idx]
+        sample_size = int(self.seq_len_values[idx] * 0.1)
+        numbers = self.sampler.choice(self.seq_len_values[idx], size=sample_size, replace=False)
+        out_sen = copy.copy(self.sentences[idx])
+        out_sen[numbers] = 1
+        # if idx == 14:
+        #     print(f'ids: {idx}, numbers: {numbers}')
+        return out_sen, self.tags[idx], self.positions[idx], self.seq_len_values[idx], self.d_tags[idx]
 
 
 def tokenize(x_train, x_val):
@@ -134,11 +144,14 @@ def main():
     train_address = '/home/user/PycharmProjects/nlp_ex_3/data/train.labeled'
     val_address = '/home/user/PycharmProjects/nlp_ex_3/data/test.labeled'
 
-    generate_ds(train_address=train_address,
-                val_address=val_address,
-                train_batch_size=24,
-                train_shuffle=False,
-                max_seq_len=250)
+    train_data_loader, val_data_loader, sentences_word2idx, pos_word2idx = generate_ds(train_address=train_address,
+                                                                                       val_address=val_address,
+                                                                                       train_batch_size=24,
+                                                                                       train_shuffle=False,
+                                                                                       max_seq_len=250)
+    for i in range(10):
+        for val in train_data_loader:
+            pass
 
 
 if __name__ == '__main__':

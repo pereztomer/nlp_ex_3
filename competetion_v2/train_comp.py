@@ -110,7 +110,7 @@ def main():
     train(model=model,
           train_data_loader=train_data_loader,
           validation_data_loader=val_data_loader,
-          epochs=15,
+          epochs=30,
           lr=0.001,
           device=device)
 
