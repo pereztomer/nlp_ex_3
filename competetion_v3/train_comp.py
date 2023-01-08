@@ -1,14 +1,14 @@
 import random
 import numpy as np
 import torch
-from competetion_v2.dependecy_parser_comp import DependencyParser
-from competetion_v2.utils_comp import generate_ds
+from competetion_v3.dependecy_parser_comp import DependencyParser
+from competetion_v3.utils_comp import generate_folds
 from chu_liu_edmonds import decode_mst
 import os
 
 
-def train(model, train_data_loader, validation_data_loader, epochs, lr, device):
-    print('Beginning training')
+def train(fold_num, model, train_data_loader, validation_data_loader, epochs, lr, device):
+    print(f'Beginning training, fold: {fold_num}')
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     for i in range(epochs):
         model.train()
@@ -45,7 +45,7 @@ def train(model, train_data_loader, validation_data_loader, epochs, lr, device):
         print(
             f'Epoch: {i}, train loss: {np.average(sample_loss_lst)}, validation loss: {val_loss}, val uas: {uas_loss}')
 
-    torch.save(model, 'comp_model_mlp_ex3')
+    torch.save(model, f'models/comp_model_mlp_ex3_{fold_num}')
 
 
 def evaluate(model, data_loader, device):
@@ -90,30 +90,32 @@ def set_seed(seed: int = 42) -> None:
     print(f"Random seed set as {seed}")
 
 
-def main():
-    set_seed(seed=318295029)
+def main(seed_num):
+    set_seed(seed=seed_num)
     device = 'cuda'
     train_address = '/home/user/PycharmProjects/nlp_ex_3/data/train.labeled'
     val_address = '/home/user/PycharmProjects/nlp_ex_3/data/test.labeled'
 
-    train_data_loader, val_data_loader, sentences_word2idx, pos_word2idx = generate_ds(train_address=train_address,
-                                                                                       val_address=val_address,
-                                                                                       train_batch_size=24,
-                                                                                       train_shuffle=True,
-                                                                                       max_seq_len=250)
-    # Model initialization
-    model = DependencyParser(device=device,
-                             embedding_dim=200,
-                             sentences_word2idx=sentences_word2idx,
-                             pos_word2idx=pos_word2idx).to(device)
+    for idx, (train_data_loader, val_data_loader, sentences_word2idx, pos_word2idx) in enumerate(generate_folds(
+            train_address=train_address,
+            val_address=val_address,
+            train_batch_size=24,
+            train_shuffle=True,
+            max_seq_len=250)):
+        # Model initialization
+        model = DependencyParser(device=device,
+                                 embedding_dim=200,
+                                 sentences_word2idx=sentences_word2idx,
+                                 pos_word2idx=pos_word2idx).to(device)
 
-    train(model=model,
-          train_data_loader=train_data_loader,
-          validation_data_loader=val_data_loader,
-          epochs=30,
-          lr=0.001,
-          device=device)
+        train(model=model,
+              train_data_loader=train_data_loader,
+              validation_data_loader=val_data_loader,
+              epochs=15,
+              lr=0.001,
+              device=device,
+              fold_num=idx)
 
 
 if __name__ == '__main__':
-    main()
+    main(seed_num=130482)

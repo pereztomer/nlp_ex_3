@@ -59,7 +59,7 @@ class CustomDataset(Dataset):
         return len(self.sentences)
 
     def __getitem__(self, idx):
-        sample_size = int(self.seq_len_values[idx] * 0.1)
+        sample_size = int(self.seq_len_values[idx] * 0.3)
         numbers = self.sampler.choice(self.seq_len_values[idx], size=sample_size, replace=False)
         out_sen = copy.copy(self.sentences[idx])
         out_sen[numbers] = 1
@@ -93,12 +93,21 @@ def padding_(sentences, seq_len):
     return features
 
 
-def generate_ds(train_address, val_address, train_batch_size, train_shuffle, max_seq_len):
-    train_sentences, train_positions, train_y, train_sentence_dependency_tags, train_sentences_real_len = \
-        parse_train_file(train_address)
-    val_sentences, val_positions, val_y, val_sentence_dependency_tags, val_sentences_real_len = parse_train_file(
-        val_address)
-    # tokenizing sentences:
+def generate_ds(train_data, val_data, train_batch_size, train_shuffle, max_seq_len):
+    # unpacking the train and validation:
+    # train:
+    train_sentences = train_data['sentences']
+    train_y = train_data['y']
+    train_sentence_dependency_tags = train_data['d_tags']
+    train_positions = train_data['positions']
+    train_sentences_real_len = train_data['real_len']
+    # validation:
+    val_sentences = val_data['sentences']
+    val_y = val_data['y']
+    val_sentence_dependency_tags = val_data['d_tags']
+    val_positions = val_data['positions']
+    val_sentences_real_len = val_data['real_len']
+
     train_sentences_idx, val_sentences_idx, sentences_word2idx, sentences_idx2word = tokenize(train_sentences,
                                                                                               val_sentences)
     train_sentences_idx_padded = padding_(train_sentences_idx, max_seq_len)
@@ -138,6 +147,78 @@ def generate_ds(train_address, val_address, train_batch_size, train_shuffle, max
                                  shuffle=False)
 
     return train_data_loader, val_data_loader, sentences_word2idx, pos_word2idx
+
+
+def generate_folds(train_address, val_address, train_batch_size, train_shuffle, max_seq_len):
+    train_sentences, train_positions, train_y, train_sentence_dependency_tags, train_sentences_real_len = \
+        parse_train_file(train_address)
+    val_sentences, val_positions, val_y, val_sentence_dependency_tags, val_sentences_real_len = parse_train_file(
+        val_address)
+
+    sentences = train_sentences + val_sentences
+    positions = train_positions + val_positions
+    y = train_y + val_y
+    sentence_dependency_tags = train_sentence_dependency_tags + val_sentence_dependency_tags
+    sentences_real_len = train_sentences_real_len + val_sentences_real_len
+
+    available_indexes = list(range(len(sentences)))
+    chunk_size = len(available_indexes) // 5
+    split_indexes = [available_indexes[i:i + chunk_size] for i in range(0, len(available_indexes), chunk_size)]
+
+    for i in range(5):
+        fold_train_idx = []
+        for sp_i, sp in enumerate(split_indexes):
+            if sp_i == i:
+                continue
+            else:
+                fold_train_idx.extend(sp)
+
+        fold_train_sentences = []
+        fold_train_positions = []
+        fold_train_y = []
+        fold_train_sentence_dependency_tags = []
+        fold_train_sentences_real_len = []
+
+        fold_val_sentences = []
+        fold_val_positions = []
+        fold_val_y = []
+        fold_val_sentence_dependency_tags = []
+        fold_val_sentences_real_len = []
+        for counter, (sen, pos, sa_y, d_tag, real_len) in enumerate(
+                zip(sentences, positions, y, sentence_dependency_tags,
+                    sentences_real_len)):
+            if counter in fold_train_idx:
+                fold_train_sentences.append(sen)
+                fold_train_positions.append(pos)
+                fold_train_y.append(sa_y)
+                fold_train_sentence_dependency_tags.append(d_tag)
+                fold_train_sentences_real_len.append(real_len)
+            else:
+                fold_val_sentences.append(sen)
+                fold_val_positions.append(pos)
+                fold_val_y.append(sa_y)
+                fold_val_sentence_dependency_tags.append(d_tag)
+                fold_val_sentences_real_len.append(real_len)
+
+        # send fold train and validation into generate ds:
+
+        # print(len(fold_val_sentences))
+        train_data = {'sentences': fold_train_sentences,
+                      'positions': fold_train_positions,
+                      'y': fold_train_y,
+                      'd_tags': fold_train_sentence_dependency_tags,
+                      'real_len': fold_train_sentences_real_len}
+
+        val_data = {'sentences': fold_val_sentences,
+                    'positions': fold_val_positions,
+                    'y': fold_val_y,
+                    'd_tags': fold_val_sentence_dependency_tags,
+                    'real_len': fold_val_sentences_real_len}
+
+        train_data_loader, val_data_loader, sentences_word2idx, pos_word2idx = generate_ds(train_data, val_data,
+                                                                                           train_batch_size,
+                                                                                           train_shuffle, max_seq_len)
+        yield train_data_loader, val_data_loader, sentences_word2idx, pos_word2idx
 
 
 def main():
