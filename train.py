@@ -77,7 +77,7 @@ def main():
     test_file_address = '/home/user/PycharmProjects/nlp_ex_3/data/test.labeled'
     train_data_loader = generate_ds(file_address=train_file_address,
                                     batch_size=25,
-                                    shuffle=zzzz)
+                                    shuffle=True)
 
     validation_data_loader = generate_ds(file_address=test_file_address,
                                          batch_size=1,
@@ -88,7 +88,7 @@ def main():
     train(model=model,
           train_data_loader=train_data_loader,
           validation_data_loader=validation_data_loader,
-          epochs=50,
+          epochs=10,
           lr=0.001,
           device=device)
 
