@@ -84,7 +84,7 @@ def set_seed(seed: int = 42) -> None:
     torch.backends.cudnn.benchmark = False
     # Set a fixed value for the hash seed
     os.environ["PYTHONHASHSEED"] = str(seed)
-    print(f"Random seed set as {seed}")
+    # print(f"Random seed set as {seed}")
 
 
 def plot_graph(train_loss, val_loss, graph_type):
@@ -127,6 +127,6 @@ def main():
     plot_graph(train_loss_list, val_loss_list, 'loss')
     plot_graph(train_uas_list, val_uas_list, 'uas')
 
-
+s
 if __name__ == '__main__':
     main()
