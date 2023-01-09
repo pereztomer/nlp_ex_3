@@ -1,7 +1,7 @@
 import random
 import numpy as np
 import torch
-from competetion_v2.dependecy_parser_comp import DependencyParser
+from competetion_v3.dependecy_parser_comp import DependencyParser
 from competetion_v2.utils_comp import generate_ds
 from chu_liu_edmonds import decode_mst
 import os
@@ -95,6 +95,7 @@ def main():
     device = 'cuda'
     train_address = '/home/user/PycharmProjects/nlp_ex_3/data/train.labeled'
     val_address = '/home/user/PycharmProjects/nlp_ex_3/data/test.labeled'
+    # val_address = '/home/user/PycharmProjects/nlp_ex_3/data/ptb_test_3.3.0.sd.clean'
 
     train_data_loader, val_data_loader, sentences_word2idx, pos_word2idx = generate_ds(train_address=train_address,
                                                                                        val_address=val_address,
@@ -110,7 +111,7 @@ def main():
     train(model=model,
           train_data_loader=train_data_loader,
           validation_data_loader=val_data_loader,
-          epochs=30,
+          epochs=1,
           lr=0.001,
           device=device)
 

@@ -90,7 +90,7 @@ def write_file(file_address, predictions):
                 new_sentence = []
                 predictions_counter += 1
 
-    with open('test.txt', 'w') as f:
+    with open('val_untaged_taged.txt', 'w') as f:
         for sen, pred in all_sentences:
             for row, word_pred in zip(sen, pred[1:]):
                 row_lst = row.split('\t')
@@ -110,8 +110,8 @@ def write_file(file_address, predictions):
 
 def main():
     # Model class must be defined somewhere
-    comp_address = '/home/user/PycharmProjects/nlp_ex_3/data/comp.unlabeled'
-    model = torch.load('comp_model_mlp_ex3').to('cuda')
+    comp_address = '/home/user/PycharmProjects/nlp_ex_3/val_untaged.txt'
+    model = torch.load('/home/user/PycharmProjects/nlp_ex_3/competetion_v2/comp_model_mlp_ex3').to('cuda')
     sentences_word2idx = model.sentences_word2idx
     pos_word2idx = model.pos_word2idx
     comp_sentences, comp_sentence_positions, comp_sentences_real_len = parse_comp_file(comp_address)
@@ -127,8 +127,8 @@ def main():
     for sent_pos in comp_sentence_positions:
         comp_pos_idx.append([pos_word2idx[pos] if pos in pos_word2idx else 0 for pos in sent_pos])
 
-    comp_sentences_idx_padded = padding_(comp_sentences_idx, 84)
-    comp_comp_pos_idx = padding_(comp_pos_idx, 84)
+    comp_sentences_idx_padded = padding_(comp_sentences_idx, 250)
+    comp_comp_pos_idx = padding_(comp_pos_idx, 250)
 
     comp_ds = CustomDataset(sentences=comp_sentences_idx_padded,
                             positions=comp_comp_pos_idx,

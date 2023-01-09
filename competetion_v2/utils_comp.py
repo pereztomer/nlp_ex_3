@@ -46,7 +46,7 @@ def parse_train_file(file_address):
     return sentences, sentence_positions, sentence_tags, sentence_dependency_tags, sentences_real_len
 
 
-class CustomDataset(Dataset):
+class CustomDatasetAug(Dataset):
     def __init__(self, sentences, positions, tags, d_tags, seq_len_vals):
         self.sentences = sentences
         self.positions = positions
@@ -59,13 +59,29 @@ class CustomDataset(Dataset):
         return len(self.sentences)
 
     def __getitem__(self, idx):
-        sample_size = int(self.seq_len_values[idx] * 0.1)
+        sample_size = int(self.seq_len_values[idx] * 0.3)
         numbers = self.sampler.choice(self.seq_len_values[idx], size=sample_size, replace=False)
         out_sen = copy.copy(self.sentences[idx])
         out_sen[numbers] = 1
         # if idx == 14:
         #     print(f'ids: {idx}, numbers: {numbers}')
         return out_sen, self.tags[idx], self.positions[idx], self.seq_len_values[idx], self.d_tags[idx]
+
+
+class CustomDatasetNoAug(Dataset):
+    def __init__(self, sentences, positions, tags, d_tags, seq_len_vals):
+        self.sentences = sentences
+        self.positions = positions
+        self.tags = tags
+        self.seq_len_values = seq_len_vals
+        self.d_tags = d_tags
+        self.sampler = default_rng()
+
+    def __len__(self):
+        return len(self.sentences)
+
+    def __getitem__(self, idx):
+        return self.sentences[idx], self.tags[idx], self.positions[idx], self.seq_len_values[idx], self.d_tags[idx]
 
 
 def tokenize(x_train, x_val):
@@ -117,21 +133,21 @@ def generate_ds(train_address, val_address, train_batch_size, train_shuffle, max
     train_d_tags_idx_padded = padding_(train_d_tags_idx, max_seq_len)
     val_d_tags_idx_padded = padding_(val_d_tags_idx, max_seq_len)
 
-    train_ds = CustomDataset(sentences=train_sentences_idx_padded,
-                             tags=train_y_padded,
-                             positions=train_pos_idx_padded,
-                             d_tags=train_d_tags_idx_padded,
-                             seq_len_vals=train_sentences_real_len)
+    train_ds = CustomDatasetAug(sentences=train_sentences_idx_padded,
+                                tags=train_y_padded,
+                                positions=train_pos_idx_padded,
+                                d_tags=train_d_tags_idx_padded,
+                                seq_len_vals=train_sentences_real_len)
 
     train_data_loader = DataLoader(dataset=train_ds,
                                    batch_size=train_batch_size,
                                    shuffle=train_shuffle)
 
-    val_ds = CustomDataset(sentences=val_sentences_idx_padded,
-                           tags=val_y_padded,
-                           positions=val_pos_idx_padded,
-                           d_tags=val_d_tags_idx_padded,
-                           seq_len_vals=val_sentences_real_len)
+    val_ds = CustomDatasetNoAug(sentences=val_sentences_idx_padded,
+                                tags=val_y_padded,
+                                positions=val_pos_idx_padded,
+                                d_tags=val_d_tags_idx_padded,
+                                seq_len_vals=val_sentences_real_len)
 
     val_data_loader = DataLoader(dataset=val_ds,
                                  batch_size=1,

@@ -45,10 +45,9 @@ class DependencyParser(nn.Module):
         self.log_softmax = nn.LogSoftmax(dim=1)
         self.tags_classifier = Mlp(input_dim=256 * 2, output_dim=20)
 
-    def forward(self, padded_sentence, padded_pos, real_seq_len, padded_d_tags, padded_dependency_tree=None):
+    def forward(self, padded_sentence, padded_pos, real_seq_len, padded_d_tags=None, padded_dependency_tree=None):
         sentence = padded_sentence[:real_seq_len]
         pos = padded_pos[:real_seq_len]
-        d_tags = padded_d_tags[:real_seq_len]
 
         sentence_embeddings = self.word_embedding(sentence)
         pos_embeddings = self.pos_embedding(pos)
@@ -58,7 +57,6 @@ class DependencyParser(nn.Module):
         lstm_out, _ = self.encoder(embeddings)
 
         predicted_d_tags = self.tags_classifier(lstm_out)
-        d_tags_loss = self.loss_function(self.log_softmax(predicted_d_tags), d_tags)
 
         X1 = lstm_out.unsqueeze(0)
         Y1 = lstm_out.unsqueeze(1)
@@ -73,6 +71,9 @@ class DependencyParser(nn.Module):
         out_score_matrix = scores_matrix.T.fill_diagonal_(0)
         out_score_matrix[:, 0] = 0
         if padded_dependency_tree is not None:
+            d_tags = padded_d_tags[:real_seq_len]
+            d_tags_loss = self.loss_function(self.log_softmax(predicted_d_tags), d_tags)
+
             dependency_tree = padded_dependency_tree[:real_seq_len]
             dependency_tree = dependency_tree.type(torch.LongTensor).to('cuda')
             loss = self.loss_function(self.log_softmax(scores_matrix)[1:], dependency_tree[1:]) + d_tags_loss

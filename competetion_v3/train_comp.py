@@ -5,6 +5,7 @@ from competetion_v3.dependecy_parser_comp import DependencyParser
 from competetion_v3.utils_comp import generate_folds
 from chu_liu_edmonds import decode_mst
 import os
+from torch import nn
 
 
 def train(fold_num, model, train_data_loader, validation_data_loader, epochs, lr, device):
@@ -73,7 +74,7 @@ def evaluate(model, data_loader, device):
             uas_loss_lst += list((mst[1:] == y[1:real_seq_len].detach().cpu().numpy()))
             total_tokens_num += len(mst[1:])
             # uas_loss_lst.append(uas_loss)
-
+    # the len of total_tokens needs to b e 24,325! but is 28289!
     return sum(uas_loss_lst) / total_tokens_num, np.average(loss_lst)
 
 
@@ -88,6 +89,14 @@ def set_seed(seed: int = 42) -> None:
     # Set a fixed value for the hash seed
     os.environ["PYTHONHASHSEED"] = str(seed)
     print(f"Random seed set as {seed}")
+
+
+def init_weights(m):
+    if isinstance(m, nn.Linear):
+        torch.nn.init.normal_(m.weight, mean=0.0, std=2.0)
+        # torch.nn.init.xavier_uniform_(m.weight)
+        # m.bias.data.fill_(0.001)
+
 
 
 def main(seed_num):
@@ -108,14 +117,21 @@ def main(seed_num):
                                  sentences_word2idx=sentences_word2idx,
                                  pos_word2idx=pos_word2idx).to(device)
 
+        # model.edge_scorer.apply(init_weights)
+        # model.tags_classifier.apply(init_weights)
+        # for name, param in model.named_parameters():
+        #     if param.requires_grad:
+        #         print(name, param.data)
         train(model=model,
               train_data_loader=train_data_loader,
               validation_data_loader=val_data_loader,
-              epochs=15,
+              epochs=1,
               lr=0.001,
               device=device,
               fold_num=idx)
 
 
 if __name__ == '__main__':
+    # good seed: 130482
+    # for seed_num in np.random.randint(2, size=10):
     main(seed_num=130482)
