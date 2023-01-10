@@ -1,9 +1,5 @@
 from torch import nn
-from gensim import downloader
-import numpy as np
-from parser import parse_train_file
 import torch
-import itertools
 
 
 class Mlp(nn.Module):

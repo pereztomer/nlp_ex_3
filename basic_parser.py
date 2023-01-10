@@ -1,5 +1,4 @@
 import numpy as np
-
 from torch.utils.data import DataLoader, Dataset
 from gensim import downloader
 
@@ -101,13 +100,3 @@ def generate_ds(file_address, batch_size, shuffle):
                              batch_size=batch_size,
                              shuffle=shuffle)
     return data_loader
-
-
-def main():
-    file_address = '/home/user/PycharmProjects/nlp_ex_3/data/train.labeled'
-    sentences, sentence_tags = parse_train_file(file_address)
-    print('hi')
-
-
-if __name__ == '__main__':
-    main()

@@ -1,7 +1,5 @@
 import copy
-
 import numpy as np
-
 from torch.utils.data import DataLoader, Dataset
 from numpy.random import default_rng
 
@@ -236,21 +234,3 @@ def generate_folds(train_address, val_address, train_batch_size, train_shuffle, 
                                                                                            train_batch_size,
                                                                                            train_shuffle, max_seq_len)
         yield train_data_loader, val_data_loader, sentences_word2idx, pos_word2idx
-
-
-def main():
-    train_address = '/home/user/PycharmProjects/nlp_ex_3/data/train.labeled'
-    val_address = '/home/user/PycharmProjects/nlp_ex_3/data/test.labeled'
-
-    train_data_loader, val_data_loader, sentences_word2idx, pos_word2idx = generate_ds(train_address=train_address,
-                                                                                       val_address=val_address,
-                                                                                       train_batch_size=24,
-                                                                                       train_shuffle=False,
-                                                                                       max_seq_len=250)
-    for i in range(10):
-        for val in train_data_loader:
-            pass
-
-
-if __name__ == '__main__':
-    main()

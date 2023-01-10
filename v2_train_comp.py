@@ -117,9 +117,8 @@ def plot_graph(train_loss, val_loss, graph_type):
 def main():
     set_seed(seed=318295029)
     device = 'cuda'
-    train_address = '/home/user/PycharmProjects/nlp_ex_3/data/train.labeled'
-    val_address = '/home/user/PycharmProjects/nlp_ex_3/data/test.labeled'
-    # val_address = '/home/user/PycharmProjects/nlp_ex_3/data/ptb_test_3.3.0.sd.clean'
+    train_address = './data/train.labeled'
+    val_address = './data/test.labeled'
 
     train_data_loader, val_data_loader, sentences_word2idx, pos_word2idx = generate_ds(train_address=train_address,
                                                                                        val_address=val_address,

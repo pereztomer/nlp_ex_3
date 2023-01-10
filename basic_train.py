@@ -1,8 +1,8 @@
 import random
 import numpy as np
 import torch
-from dependecy_parser_optimized import DependencyParser
-from parser import generate_ds
+from basic_dependecy_parser import DependencyParser
+from basic_parser import generate_ds
 from chu_liu_edmonds import decode_mst
 import os
 import matplotlib.pyplot as plt

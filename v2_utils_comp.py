@@ -1,7 +1,5 @@
 import copy
-
 import numpy as np
-
 from torch.utils.data import DataLoader, Dataset
 from numpy.random import default_rng
 
@@ -113,18 +111,6 @@ def generate_ds(train_address, val_address, train_batch_size, train_shuffle, max
     train_sentences, train_positions, train_y, train_sentence_dependency_tags, train_sentences_real_len = \
         parse_train_file(train_address)
 
-    # # delete!
-    # custom_address = '/home/user/PycharmProjects/nlp_ex_3/data/ptb_test_3.3.0.sd.clean'
-    # more_sentences, more_positions, more_y, more_sentence_dependency_tags, more_sentences_real_len = \
-    #     parse_train_file(custom_address)
-    #
-    # train_sentences.extend(more_sentences)
-    # train_positions.extend(more_positions)
-    # train_y.extend(more_y)
-    # train_sentence_dependency_tags.extend(more_sentence_dependency_tags)
-    # train_sentences_real_len += more_sentences_real_len
-    # # ====================
-
     val_sentences, val_positions, val_y, val_sentence_dependency_tags, val_sentences_real_len = parse_train_file(
         val_address)
 
@@ -174,20 +160,3 @@ def generate_ds(train_address, val_address, train_batch_size, train_shuffle, max
 
     return train_data_loader, val_data_loader, sentences_word2idx, pos_word2idx
 
-
-def main():
-    train_address = '/home/user/PycharmProjects/nlp_ex_3/data/train.labeled'
-    val_address = '/home/user/PycharmProjects/nlp_ex_3/data/test.labeled'
-
-    train_data_loader, val_data_loader, sentences_word2idx, pos_word2idx = generate_ds(train_address=train_address,
-                                                                                       val_address=val_address,
-                                                                                       train_batch_size=24,
-                                                                                       train_shuffle=False,
-                                                                                       max_seq_len=250)
-    for i in range(10):
-        for val in train_data_loader:
-            pass
-
-
-if __name__ == '__main__':
-    main()

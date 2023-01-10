@@ -1,9 +1,5 @@
 from torch import nn
-from gensim import downloader
-import numpy as np
-from parser import parse_train_file
 import torch
-import itertools
 
 
 class Mlp(nn.Module):
@@ -61,17 +57,3 @@ class DependencyParser(nn.Module):
         out_score_matrix = scores_matrix.T.fill_diagonal_(0)
         out_score_matrix[:, 0] = 0
         return loss, out_score_matrix
-
-
-# def embed_sentence(self, sen):
-#     representation = []
-#     for word in sen:
-#         word = word.lower()
-#         if word not in self.word_embedding.key_to_index:
-#             vec = np.zeros(200)
-#         else:
-#             vec = self.word_embedding[word]
-#         representation.append(vec)
-#     representation = np.asarray(representation)
-#     return representation
-

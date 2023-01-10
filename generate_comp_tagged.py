@@ -103,10 +103,9 @@ def write_file(file_address, predictions):
 
 
 def main():
-    # Model class must be defined somewhere
     # comp_address = '/home/user/PycharmProjects/nlp_ex_3/val_untaged.txt'
-    comp_address = '/home/user/PycharmProjects/nlp_ex_3/data/comp.unlabeled'
-    model = torch.load('/home/user/PycharmProjects/nlp_ex_3/competetion_v2/comp_model_mlp_ex3').to('cuda')
+    comp_address = './data/comp.unlabeled'
+    model = torch.load('comp_model_mlp_ex3').to('cuda')
     sentences_word2idx = model.sentences_word2idx
     pos_word2idx = model.pos_word2idx
     comp_sentences, comp_sentence_positions, comp_sentences_real_len = parse_comp_file(comp_address)
