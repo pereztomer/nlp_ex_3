@@ -113,20 +113,26 @@ def generate_ds(train_address, val_address, train_batch_size, train_shuffle, max
     train_sentences, train_positions, train_y, train_sentence_dependency_tags, train_sentences_real_len = \
         parse_train_file(train_address)
 
-    # delete!
-    custom_address = '/home/user/PycharmProjects/nlp_ex_3/data/ptb_test_3.3.0.sd.clean'
-    more_sentences, more_positions, more_y, more_sentence_dependency_tags, more_sentences_real_len = \
-        parse_train_file(custom_address)
-
-    train_sentences.extend(more_sentences)
-    train_positions.extend(more_positions)
-    train_y.extend(more_y)
-    train_sentence_dependency_tags.extend(more_sentence_dependency_tags)
-    train_sentences_real_len += more_sentences_real_len
-    # ====================
+    # # delete!
+    # custom_address = '/home/user/PycharmProjects/nlp_ex_3/data/ptb_test_3.3.0.sd.clean'
+    # more_sentences, more_positions, more_y, more_sentence_dependency_tags, more_sentences_real_len = \
+    #     parse_train_file(custom_address)
+    #
+    # train_sentences.extend(more_sentences)
+    # train_positions.extend(more_positions)
+    # train_y.extend(more_y)
+    # train_sentence_dependency_tags.extend(more_sentence_dependency_tags)
+    # train_sentences_real_len += more_sentences_real_len
+    # # ====================
 
     val_sentences, val_positions, val_y, val_sentence_dependency_tags, val_sentences_real_len = parse_train_file(
         val_address)
+
+    train_sentences.extend(val_sentences)
+    train_positions.extend(val_positions)
+    train_y.extend(val_y)
+    train_sentence_dependency_tags.extend(val_sentence_dependency_tags)
+    train_sentences_real_len += val_sentences_real_len
     # tokenizing sentences:
     train_sentences_idx, val_sentences_idx, sentences_word2idx, sentences_idx2word = tokenize(train_sentences,
                                                                                               val_sentences)

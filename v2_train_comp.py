@@ -1,15 +1,20 @@
 import random
 import numpy as np
 import torch
-from competetion_v3.dependecy_parser_comp import DependencyParser
-from competetion_v3.utils_comp import generate_folds
+from v3_dependecy_parser_comp import DependencyParser
+from v2_utils_comp import generate_ds
 from chu_liu_edmonds import decode_mst
 import os
-from torch import nn
+import matplotlib.pyplot as plt
 
 
-def train(fold_num, model, train_data_loader, validation_data_loader, epochs, lr, device):
-    print(f'Beginning training, fold: {fold_num}')
+def train(model, train_data_loader, train_data_redundant, validation_data_loader, epochs, lr, device):
+    print('Beginning training')
+    train_loss_list = []
+    train_uas_list = []
+
+    val_loss_list = []
+    val_uas_list = []
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     for i in range(epochs):
         model.train()
@@ -43,10 +48,18 @@ def train(fold_num, model, train_data_loader, validation_data_loader, epochs, lr
 
         mst, _ = decode_mst(sample_score_matrix.detach().cpu().numpy(), sample_score_matrix.shape[0], has_labels=False)
         uas_loss, val_loss = evaluate(model, validation_data_loader, device)
+        train_uas_loss, train_loss = evaluate(model, train_data_redundant, device)
+
+        train_loss_list.append(train_loss)
+        train_uas_list.append(train_uas_loss)
+
+        val_loss_list.append(val_loss)
+        val_uas_list.append(uas_loss)
         print(
             f'Epoch: {i}, train loss: {np.average(sample_loss_lst)}, validation loss: {val_loss}, val uas: {uas_loss}')
 
-    torch.save(model, f'models/comp_model_mlp_ex3_{fold_num}')
+    torch.save(model, 'comp_model_mlp_ex3')
+    return train_loss_list, train_uas_list, val_loss_list, val_uas_list
 
 
 def evaluate(model, data_loader, device):
@@ -74,7 +87,7 @@ def evaluate(model, data_loader, device):
             uas_loss_lst += list((mst[1:] == y[1:real_seq_len].detach().cpu().numpy()))
             total_tokens_num += len(mst[1:])
             # uas_loss_lst.append(uas_loss)
-    # the len of total_tokens needs to b e 24,325! but is 28289!
+
     return sum(uas_loss_lst) / total_tokens_num, np.average(loss_lst)
 
 
@@ -88,50 +101,54 @@ def set_seed(seed: int = 42) -> None:
     torch.backends.cudnn.benchmark = False
     # Set a fixed value for the hash seed
     os.environ["PYTHONHASHSEED"] = str(seed)
-    print(f"Random seed set as {seed}")
+    # print(f"Random seed set as {seed}")
 
 
-def init_weights(m):
-    if isinstance(m, nn.Linear):
-        torch.nn.init.normal_(m.weight, mean=0.0, std=2.0)
-        # torch.nn.init.xavier_uniform_(m.weight)
-        # m.bias.data.fill_(0.001)
+def plot_graph(train_loss, val_loss, graph_type):
+    plt.plot(train_loss, label=f'train {graph_type}')
+    plt.plot(val_loss, label=f'validation {graph_type}')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title(f'basic model {graph_type} - train/val')
+    plt.legend()
+    plt.show()
 
 
-
-def main(seed_num):
-    set_seed(seed=seed_num)
+def main():
+    set_seed(seed=318295029)
     device = 'cuda'
     train_address = '/home/user/PycharmProjects/nlp_ex_3/data/train.labeled'
     val_address = '/home/user/PycharmProjects/nlp_ex_3/data/test.labeled'
+    # val_address = '/home/user/PycharmProjects/nlp_ex_3/data/ptb_test_3.3.0.sd.clean'
 
-    for idx, (train_data_loader, val_data_loader, sentences_word2idx, pos_word2idx) in enumerate(generate_folds(
-            train_address=train_address,
-            val_address=val_address,
-            train_batch_size=24,
-            train_shuffle=True,
-            max_seq_len=250)):
-        # Model initialization
-        model = DependencyParser(device=device,
-                                 embedding_dim=200,
-                                 sentences_word2idx=sentences_word2idx,
-                                 pos_word2idx=pos_word2idx).to(device)
+    train_data_loader, val_data_loader, sentences_word2idx, pos_word2idx = generate_ds(train_address=train_address,
+                                                                                       val_address=val_address,
+                                                                                       train_batch_size=24,
+                                                                                       train_shuffle=True,
+                                                                                       max_seq_len=250)
 
-        # model.edge_scorer.apply(init_weights)
-        # model.tags_classifier.apply(init_weights)
-        # for name, param in model.named_parameters():
-        #     if param.requires_grad:
-        #         print(name, param.data)
-        train(model=model,
-              train_data_loader=train_data_loader,
-              validation_data_loader=val_data_loader,
-              epochs=1,
-              lr=0.001,
-              device=device,
-              fold_num=idx)
+    train_data_redundant, _, _, _ = generate_ds(train_address=train_address,
+                                                val_address=val_address,
+                                                train_batch_size=1,
+                                                train_shuffle=False,
+                                                max_seq_len=250)
+
+    # Model initialization
+    model = DependencyParser(device=device,
+                             embedding_dim=200,
+                             sentences_word2idx=sentences_word2idx,
+                             pos_word2idx=pos_word2idx).to(device)
+
+    train_loss_list, train_uas_list, val_loss_list, val_uas_list = train(model=model,
+                                                                         train_data_loader=train_data_loader,
+                                                                         train_data_redundant=train_data_redundant,
+                                                                         validation_data_loader=val_data_loader,
+                                                                         epochs=10,
+                                                                         lr=0.001,
+                                                                         device=device)
+    # plot_graph(train_loss_list, val_loss_list, 'loss')
+    # plot_graph(train_uas_list, val_uas_list, 'uas')
 
 
 if __name__ == '__main__':
-    # good seed: 130482
-    # for seed_num in np.random.randint(2, size=10):
-    main(seed_num=130482)
+    main()

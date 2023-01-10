@@ -79,18 +79,12 @@ def write_file(file_address, predictions):
         for idx, row in enumerate(f):
             if row != '\n':
                 new_sentence.append(row)
-                # token = row.split('\t')[1]
-                # token_pos = row.split('\t')[3]
-                # token_head = row.split('\t')[6]
-                # token_head_head = predictions[idx]
-                # new_sentence.append(token)
-                # new_sentence_pos.append(token_pos)
             else:
                 all_sentences.append([new_sentence, predictions[predictions_counter]])
                 new_sentence = []
                 predictions_counter += 1
 
-    with open('val_untaged_taged.txt', 'w') as f:
+    with open('comp_tagged.txt', 'w') as f:
         for sen, pred in all_sentences:
             for row, word_pred in zip(sen, pred[1:]):
                 row_lst = row.split('\t')
@@ -110,7 +104,8 @@ def write_file(file_address, predictions):
 
 def main():
     # Model class must be defined somewhere
-    comp_address = '/home/user/PycharmProjects/nlp_ex_3/val_untaged.txt'
+    # comp_address = '/home/user/PycharmProjects/nlp_ex_3/val_untaged.txt'
+    comp_address = '/home/user/PycharmProjects/nlp_ex_3/data/comp.unlabeled'
     model = torch.load('/home/user/PycharmProjects/nlp_ex_3/competetion_v2/comp_model_mlp_ex3').to('cuda')
     sentences_word2idx = model.sentences_word2idx
     pos_word2idx = model.pos_word2idx
@@ -137,7 +132,6 @@ def main():
     comp_data_loader = DataLoader(dataset=comp_ds,
                                   batch_size=1,
                                   shuffle=False)
-    # todo: need to check that the prediciotns match to the rows!
     predictions = predict(model, comp_data_loader, 'cuda')
     write_file(comp_address, predictions)
 
