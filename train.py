@@ -49,7 +49,7 @@ def train(model, train_data_loader, train_data_loader_redandent, validation_data
         print(
             f'Epoch: {i}, train loss: {np.average(sample_loss_lst)}, validation loss: {val_loss}, val uas: {uas_loss}')
 
-        return train_loss_list, train_uas_list, val_loss_list, val_uas_list
+    return train_loss_list, train_uas_list, val_loss_list, val_uas_list
 
 
 def evaluate(model, data_loader, device):
@@ -100,8 +100,8 @@ def plot_graph(train_loss, val_loss, graph_type):
 def main():
     set_seed(seed=318295029)
     device = 'cuda'
-    train_file_address = '/home/user/PycharmProjects/nlp_ex_3/data/train.labeled'
-    test_file_address = '/home/user/PycharmProjects/nlp_ex_3/data/test.labeled'
+    train_file_address = './data/train.labeled'
+    test_file_address = './data/test.labeled'
     train_data_loader = generate_ds(file_address=train_file_address,
                                     batch_size=25,
                                     shuffle=True)
@@ -127,6 +127,6 @@ def main():
     plot_graph(train_loss_list, val_loss_list, 'loss')
     plot_graph(train_uas_list, val_uas_list, 'uas')
 
-s
+
 if __name__ == '__main__':
     main()

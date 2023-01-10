@@ -146,8 +146,8 @@ def main():
                                                                          epochs=10,
                                                                          lr=0.001,
                                                                          device=device)
-    plot_graph(train_loss_list, val_loss_list, 'loss')
-    plot_graph(train_uas_list, val_uas_list, 'uas')
+    # plot_graph(train_loss_list, val_loss_list, 'loss')
+    # plot_graph(train_uas_list, val_uas_list, 'uas')
 
 
 if __name__ == '__main__':

@@ -46,6 +46,7 @@ class DependencyParser(nn.Module):
         self.tags_classifier = Mlp(input_dim=256 * 2, output_dim=20)
 
     def forward(self, padded_sentence, padded_pos, real_seq_len, padded_d_tags=None, padded_dependency_tree=None):
+        # rq = real_seq_len.item()
         sentence = padded_sentence[:real_seq_len]
         pos = padded_pos[:real_seq_len]
 
